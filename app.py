@@ -1,0 +1,73 @@
+import os
+from flask import Flask, render_template, jsonify
+from config import config_by_name
+from models import db
+from auth_utils import generate_csrf_token, validate_csrf
+from routes.public_routes import public_bp
+from routes.auth_routes import auth_bp
+from routes.admin_routes import admin_bp
+from routes.student_routes import student_bp
+
+def create_app(config_name=None):
+    if not config_name:
+        config_name = os.getenv("FLASK_ENV", "development").lower()
+        if config_name not in config_by_name:
+            config_name = "default"
+
+    app = Flask(__name__)
+    app.config.from_object(config_by_name[config_name])
+
+    # Initialize extensions
+    db.init_app(app)
+
+    # CSRF hook
+    @app.before_request
+    def handle_csrf():
+        validate_csrf()
+
+    # Context processors
+    @app.context_processor
+    def inject_helpers():
+        return {
+            "csrf_token": generate_csrf_token()
+        }
+
+    # Register blueprints
+    app.register_blueprint(public_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(student_bp)
+
+    # Error handlers
+    @app.errorhandler(400)
+    def bad_request(e):
+        return render_template("errors/400.html", message=getattr(e, "description", "Bad Request")), 400
+
+    @app.errorhandler(403)
+    def forbidden(e):
+        return render_template("errors/403.html", message=getattr(e, "description", "Access Denied")), 403
+
+    @app.errorhandler(404)
+    def not_found(e):
+        return render_template("errors/404.html"), 404
+
+    @app.errorhandler(500)
+    def server_error(e):
+        return render_template("errors/500.html"), 500
+
+    # CLI command for manual DB creation
+    @app.cli.command("init-db")
+    def init_db_command():
+        """Create database tables safely."""
+        db.create_all()
+        print("Database tables initialized successfully.")
+
+    return app
+
+# Application instance for Gunicorn / WSGI
+app = create_app(os.getenv("FLASK_ENV", "production" if os.getenv("RENDER") else "development"))
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1", "yes")
+    app.run(host="0.0.0.0", port=port, debug=debug)

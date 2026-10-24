@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{% if is_edit %}Edit Student - {{ student.full_name }}{% else %}Register Student{% endif %} - LibManage{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi {% if is_edit %}bi-pencil-square text-primary{% else %}bi-person-plus text-success{% endif %} me-2"></i>
+                        {% if is_edit %}Edit Student: {{ student.full_name }}{% else %}Register New Student Member{% endif %}
+                    </h5>
+                    <a href="{{ url_for('admin.students') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Students
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="{% if is_edit %}{{ url_for('admin.edit_student', student_id=student.id) }}{% else %}{{ url_for('admin.add_student') }}{% endif %}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="student_id_number" class="form-label fw-semibold">Student ID / Roll No <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control text-uppercase" id="student_id_number" name="student_id_number" value="{{ form.student_id_number or '' }}" {% if is_edit %}readonly disabled class="form-control bg-light"{% else %}required placeholder="e.g. STU-2026-001"{% endif %}>
+                            {% if is_edit %}
+                                <div class="form-text">Student ID number cannot be modified once registered.</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="full_name" class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="full_name" name="full_name" value="{{ form.full_name or '' }}" required placeholder="e.g. Sarah Jenkins">
+                        </div>
+
+                        <div class="col-md-7">
+                            <label for="email" class="form-label fw-semibold">Email Address <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ form.email or '' }}" required placeholder="e.g. sarah@college.edu">
+                        </div>
+
+                        <div class="col-md-5">
+                            <label for="phone" class="form-label fw-semibold">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" value="{{ form.phone or '' }}" placeholder="e.g. +91 9876543210">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="department" class="form-label fw-semibold">Department / Course <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="department" name="department" value="{{ form.department or '' }}" required list="deptList" placeholder="e.g. Computer Science, Information Technology, BCA">
+                            <datalist id="deptList">
+                                <option value="Computer Science & Engineering">
+                                <option value="Bachelor of Computer Applications (BCA)">
+                                <option value="Information Technology">
+                                <option value="Electronics & Communication">
+                                <option value="Mechanical Engineering">
+                                <option value="Civil Engineering">
+                                <option value="Business Administration (BBA/MBA)">
+                            </datalist>
+                        </div>
+                    </div>
+
+                    {% if not is_edit %}
+                        <div class="alert alert-light border mt-4 mb-0 small text-muted">
+                            <i class="bi bi-info-circle text-primary me-1"></i>
+                            An initial student login will be provisioned automatically with default password: <code>student123</code>.
+                        </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{{ url_for('admin.students') }}" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4 fw-semibold">
+                            <i class="bi bi-check-lg me-1"></i> {% if is_edit %}Save Changes{% else %}Register Student{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

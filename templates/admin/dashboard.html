@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard - LibManage{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-speedometer2 text-primary"></i> Librarian Dashboard</h2>
+        <p class="text-muted mb-0">Overview of library resources, student activity, and circulation statistics.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('admin.issue_book') }}" class="btn btn-primary fw-semibold">
+            <i class="bi bi-plus-circle me-1"></i> Issue Book
+        </a>
+        <a href="{{ url_for('admin.add_book') }}" class="btn btn-outline-primary">
+            <i class="bi bi-journal-plus me-1"></i> Add Book
+        </a>
+    </div>
+</div>
+
+<!-- Key Stat Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card p-3 border-start border-primary border-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-semibold text-uppercase">Total Copies</span>
+                    <h3 class="fw-bold mb-0 text-primary">{{ total_copies }}</h3>
+                    <small class="text-muted">{{ total_titles }} unique titles</small>
+                </div>
+                <div class="stat-icon bg-primary-subtle text-primary">
+                    <i class="bi bi-journals"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card p-3 border-start border-success border-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-semibold text-uppercase">Available Copies</span>
+                    <h3 class="fw-bold mb-0 text-success">{{ available_copies }}</h3>
+                    <small class="text-muted">Ready on shelves</small>
+                </div>
+                <div class="stat-icon bg-success-subtle text-success">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card p-3 border-start border-info border-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-semibold text-uppercase">Currently Issued</span>
+                    <h3 class="fw-bold mb-0 text-info">{{ currently_issued }}</h3>
+                    <small class="text-muted">In student circulation</small>
+                </div>
+                <div class="stat-icon bg-info-subtle text-info">
+                    <i class="bi bi-arrow-left-right"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card p-3 border-start border-danger border-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-semibold text-uppercase">Overdue Books</span>
+                    <h3 class="fw-bold mb-0 text-danger">{{ overdue_count }}</h3>
+                    <small class="text-muted">Past return due date</small>
+                </div>
+                <div class="stat-icon bg-danger-subtle text-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Recent Borrowing Activity -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-clock-history text-secondary me-2"></i> Recent Circulation Activity</h5>
+                <a href="{{ url_for('admin.history') }}" class="btn btn-sm btn-link text-decoration-none">View All History &rarr;</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_borrows %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Book Title</th>
+                                    <th>Student</th>
+                                    <th>Issue Date</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in recent_borrows %}
+                                    <tr>
+                                        <td class="fw-semibold text-truncate" style="max-width: 220px;" title="{{ item.book.title }}">
+                                            {{ item.book.title }}
+                                        </td>
+                                        <td>
+                                            <div>{{ item.student.full_name }}</div>
+                                            <small class="text-muted">{{ item.student.student_id_number }}</small>
+                                        </td>
+                                        <td>{{ item.issue_date.strftime('%b %d, %Y') }}</td>
+                                        <td>
+                                            {{ item.due_date.strftime('%b %d, %Y') }}
+                                            {% if item.is_overdue %}
+                                                <span class="badge bg-danger ms-1">Overdue</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if item.status == 'issued' %}
+                                                <span class="badge bg-warning text-dark">Issued</span>
+                                            {% else %}
+                                                <span class="badge bg-success">Returned</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if item.status == 'issued' %}
+                                                <form method="POST" action="{{ url_for('admin.return_book', record_id=item.id) }}" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" data-confirm="Record return for this book?">
+                                                        <i class="bi bi-check2"></i> Return
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <span class="text-muted small"><i class="bi bi-check-all text-success"></i> Done</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <i class="bi bi-journal-x empty-state-icon"></i>
+                        <h5>No circulation records found</h5>
+                        <p class="text-muted">Books issued to students will appear here.</p>
+                        <a href="{{ url_for('admin.issue_book') }}" class="btn btn-sm btn-primary">Issue First Book</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Overdue Alert Sidebar -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold text-danger"><i class="bi bi-bell-fill me-2"></i> Overdue Alerts</h5>
+            </div>
+            <div class="card-body">
+                {% if overdue_list %}
+                    <div class="list-group list-group-flush">
+                        {% for ov in overdue_list %}
+                            <div class="list-group-item px-0 py-3">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1 text-truncate fw-semibold" style="max-width: 180px;">{{ ov.book.title }}</h6>
+                                    <span class="badge bg-danger">{{ ov.days_overdue }} days late</span>
+                                </div>
+                                <p class="mb-1 small text-muted">
+                                    Borrowed by: <strong>{{ ov.student.full_name }}</strong> ({{ ov.student.student_id_number }})
+                                </p>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <small class="text-secondary">Due: {{ ov.due_date.strftime('%b %d, %Y') }}</small>
+                                    <form method="POST" action="{{ url_for('admin.return_book', record_id=ov.id) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <button type="submit" class="btn btn-xs btn-outline-success btn-sm">Receive Return</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('admin.issued_books', filter='overdue') }}" class="btn btn-sm btn-outline-danger w-100">
+                            View All Overdue ({{ overdue_count }})
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-2"></i>
+                        <p class="mb-0">No overdue books right now! Great job.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Administration Links -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-gear-wide-connected text-secondary me-2"></i> Quick Links</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('admin.books') }}" class="btn btn-outline-secondary text-start">
+                        <i class="bi bi-journal-bookmark me-2 text-primary"></i> Manage Book Inventory
+                    </a>
+                    <a href="{{ url_for('admin.students') }}" class="btn btn-outline-secondary text-start">
+                        <i class="bi bi-people me-2 text-info"></i> Manage Registered Students
+                    </a>
+                    <a href="{{ url_for('admin.issued_books') }}" class="btn btn-outline-secondary text-start">
+                        <i class="bi bi-clock-history me-2 text-warning"></i> Active Issue Records
+                    </a>
+                    <a href="{{ url_for('public.health') }}" target="_blank" class="btn btn-outline-secondary text-start">
+                        <i class="bi bi-activity me-2 text-success"></i> Check System Health API
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}My Issued Books - LibManage{% endblock %}
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-journal-check text-primary"></i> My Active Books</h2>
+        <p class="text-muted mb-0">Books currently issued to your student account, with return due dates.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('student.books') }}" class="btn btn-outline-primary">
+            <i class="bi bi-search me-1"></i> Browse More Books
+        </a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        {% if records %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Book Title & Author</th>
+                            <th>Category</th>
+                            <th>Issue Date</th>
+                            <th>Due Date</th>
+                            <th>Days Remaining / Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in records %}
+                            <tr class="{% if r.is_overdue %}table-danger-subtle{% endif %}">
+                                <td>
+                                    <div class="fw-semibold">{{ r.book.title }}</div>
+                                    <small class="text-muted"><i class="bi bi-pen"></i> {{ r.book.author }}</small>
+                                </td>
+                                <td><span class="badge bg-light text-dark border">{{ r.book.category }}</span></td>
+                                <td>{{ r.issue_date.strftime('%b %d, %Y') }}</td>
+                                <td>
+                                    <span class="fw-semibold">{{ r.due_date.strftime('%b %d, %Y') }}</span>
+                                </td>
+                                <td>
+                                    {% if r.is_overdue %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-exclamation-triangle-fill me-1"></i> Overdue by {{ r.days_overdue }} days
+                                        </span>
+                                    {% else %}
+                                        {% set days_left = (r.due_date - today).days %}
+                                        {% if days_left == 0 %}
+                                            <span class="badge bg-warning text-dark">Due Today</span>
+                                        {% elif days_left <= 3 %}
+                                            <span class="badge bg-warning text-dark">{{ days_left }} days remaining</span>
+                                        {% else %}
+                                            <span class="badge bg-success-subtle text-success border border-success">{{ days_left }} days remaining</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-light p-3">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i> To return any of these books, visit the librarian desk.
+                </small>
+            </div>
+        {% else %}
+            <div class="empty-state py-5">
+                <i class="bi bi-check-circle-fill text-success empty-state-icon"></i>
+                <h5>No books currently issued</h5>
+                <p class="text-muted">You do not have any active library loans at this moment.</p>
+                <a href="{{ url_for('student.books') }}" class="btn btn-primary"><i class="bi bi-search"></i> Find Books to Read</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{% if is_edit %}Edit Book - {{ book.title }}{% else %}Add New Book{% endif %} - LibManage{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi {% if is_edit %}bi-pencil-square text-primary{% else %}bi-plus-circle text-success{% endif %} me-2"></i>
+                        {% if is_edit %}Edit Book Details: {{ book.title }}{% else %}Add New Book to Inventory{% endif %}
+                    </h5>
+                    <a href="{{ url_for('admin.books') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Inventory
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="{% if is_edit %}{{ url_for('admin.edit_book', book_id=book.id) }}{% else %}{{ url_for('admin.add_book') }}{% endif %}" id="bookForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="title" class="form-label fw-semibold">Book Title <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="title" name="title" value="{{ form.title or '' }}" required placeholder="e.g. Introduction to Algorithms">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="isbn" class="form-label fw-semibold">ISBN (Optional)</label>
+                            <input type="text" class="form-control" id="isbn" name="isbn" value="{{ form.isbn or '' }}" placeholder="e.g. 978-0262033848">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="author" class="form-label fw-semibold">Author(s) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="author" name="author" value="{{ form.author or '' }}" required placeholder="e.g. Thomas H. Cormen, Charles E. Leiserson">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="category" class="form-label fw-semibold">Category / Subject <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="category" name="category" value="{{ form.category or '' }}" required list="categoryList" placeholder="e.g. Computer Science, Mathematics, Physics">
+                            <datalist id="categoryList">
+                                <option value="Computer Science">
+                                <option value="Information Technology">
+                                <option value="Data Structures & Algorithms">
+                                <option value="Database Systems">
+                                <option value="Software Engineering">
+                                <option value="Web Development">
+                                <option value="Mathematics">
+                                <option value="Electronics">
+                                <option value="Management">
+                            </datalist>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="publisher" class="form-label fw-semibold">Publisher (Optional)</label>
+                            <input type="text" class="form-control" id="publisher" name="publisher" value="{{ form.publisher or '' }}" placeholder="e.g. MIT Press">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label for="total_copies" class="form-label fw-semibold">Total Copies <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="total_copies" name="total_copies" value="{{ form.total_copies or 1 }}" min="1" required>
+                            <div class="form-text">Total owned copies</div>
+                        </div>
+
+                        {% if is_edit %}
+                            <div class="col-md-3">
+                                <label for="available_copies" class="form-label fw-semibold">Available Copies <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="available_copies" name="available_copies" value="{{ form.available_copies or 0 }}" min="0" required>
+                                <div class="form-text">Must be &le; Total Copies</div>
+                            </div>
+                        {% else %}
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Initial Available Copies</label>
+                                <input type="text" class="form-control bg-light" value="Auto-set to Total" disabled>
+                                <div class="form-text">Defaults to total copies</div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {% if is_edit %}
+                        <div class="alert alert-info border mt-4 mb-0 small">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong>Note on issued copies:</strong> Currently, <strong>{{ book.issued_copies }}</strong> copies are borrowed by students. Total copies cannot be set lower than this number.
+                        </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{{ url_for('admin.books') }}" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4 fw-semibold">
+                            <i class="bi bi-check-lg me-1"></i> {% if is_edit %}Update Book{% else %}Save Book to Catalog{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

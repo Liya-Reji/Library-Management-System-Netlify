@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Library Catalog - LibManage{% endblock %}
+{% block content %}
+<div class="mb-4">
+    <h2 class="fw-bold mb-1"><i class="bi bi-search text-primary"></i> Library Catalog</h2>
+    <p class="text-muted mb-0">Search books, check live shelf availability, and locate books for study and research.</p>
+</div>
+
+<!-- Search & Filter Bar -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-3">
+        <form method="GET" action="{{ url_for('student.books') }}" class="row g-2 align-items-center">
+            <div class="col-md-5 col-lg-5">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" name="q" value="{{ query_str }}" placeholder="Search by title, author, or ISBN...">
+                </div>
+            </div>
+            <div class="col-md-3 col-lg-3">
+                <select class="form-select" name="category" onchange="this.form.submit()">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 col-lg-2">
+                <select class="form-select" name="available" onchange="this.form.submit()">
+                    <option value="" {% if not availability_filter %}selected{% endif %}>All Stock</option>
+                    <option value="yes" {% if availability_filter == 'yes' %}selected{% endif %}>Available Now</option>
+                    <option value="no" {% if availability_filter == 'no' %}selected{% endif %}>Fully Issued</option>
+                </select>
+            </div>
+            <div class="col-md-2 col-lg-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+                {% if query_str or category_filter or availability_filter %}
+                    <a href="{{ url_for('student.books') }}" class="btn btn-outline-secondary" title="Reset"><i class="bi bi-x-lg"></i></a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Books Grid -->
+{% if books %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3 mb-4">
+        {% for b in books %}
+            <div class="col">
+                <div class="card h-100 border shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-secondary-subtle text-secondary border">{{ b.category }}</span>
+                            {% if b.available_copies > 0 %}
+                                <span class="badge badge-available">
+                                    <i class="bi bi-check-circle-fill me-1"></i> Available ({{ b.available_copies }}/{{ b.total_copies }})
+                                </span>
+                            {% else %}
+                                <span class="badge badge-unavailable">
+                                    <i class="bi bi-x-circle-fill me-1"></i> All Issued (0/{{ b.total_copies }})
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <h5 class="card-title fw-bold mb-1">{{ b.title }}</h5>
+                        <p class="text-muted small mb-2"><i class="bi bi-pen me-1"></i> {{ b.author }}</p>
+
+                        {% if b.publisher %}
+                            <p class="text-muted small mb-2"><i class="bi bi-building me-1"></i> {{ b.publisher }}</p>
+                        {% endif %}
+
+                        <div class="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+                            <small class="text-muted">ISBN: {{ b.isbn or 'N/A' }}</small>
+                            {% if b.available_copies > 0 %}
+                                <span class="badge bg-success-subtle text-success">In Library</span>
+                            {% else %}
+                                <span class="badge bg-warning-subtle text-warning">Checked Out</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+        <div class="card border-0 shadow-sm p-3 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted">Showing page {{ pagination.page }} of {{ pagination.pages }} ({{ pagination.total }} total books)</small>
+                <nav aria-label="Catalog navigation">
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if pagination.has_prev %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('student.books', page=pagination.prev_num, q=query_str, category=category_filter, available=availability_filter) }}">Previous</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                        {% endif %}
+
+                        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                            {% if p %}
+                                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('student.books', page=p, q=query_str, category=category_filter, available=availability_filter) }}">{{ p }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if pagination.has_next %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('student.books', page=pagination.next_num, q=query_str, category=category_filter, available=availability_filter) }}">Next</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">Next</span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    {% endif %}
+
+{% else %}
+    <div class="card border-0 shadow-sm">
+        <div class="empty-state py-5">
+            <i class="bi bi-journal-x empty-state-icon"></i>
+            <h5>No books match your search</h5>
+            <p class="text-muted">Try using different search terms or clearing your filters.</p>
+            <a href="{{ url_for('student.books') }}" class="btn btn-outline-primary">View Full Catalog</a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

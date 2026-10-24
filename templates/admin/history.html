@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Borrowing History - LibManage{% endblock %}
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-journals text-primary"></i> Circulation History</h2>
+        <p class="text-muted mb-0">Complete historical archive of all book issue and return transactions.</p>
+    </div>
+</div>
+
+<!-- Search & Status Filter -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-3">
+        <form method="GET" action="{{ url_for('admin.history') }}" class="row g-2 align-items-center">
+            <div class="col-md-7 col-lg-8">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" name="q" value="{{ query_str }}" placeholder="Search by title, author, student name, or roll no...">
+                </div>
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <select class="form-select" name="status" onchange="this.form.submit()">
+                    <option value="" {% if not status_filter %}selected{% endif %}>All Records</option>
+                    <option value="issued" {% if status_filter == 'issued' %}selected{% endif %}>Currently Issued</option>
+                    <option value="returned" {% if status_filter == 'returned' %}selected{% endif %}>Returned</option>
+                    <option value="overdue" {% if status_filter == 'overdue' %}selected{% endif %}>Overdue</option>
+                </select>
+            </div>
+            <div class="col-md-2 col-lg-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+                {% if query_str or status_filter %}
+                    <a href="{{ url_for('admin.history') }}" class="btn btn-outline-secondary" title="Reset Filters"><i class="bi bi-x-lg"></i></a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- History Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        {% if records %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#Txn</th>
+                            <th>Book Title</th>
+                            <th>Student</th>
+                            <th>Issue Date</th>
+                            <th>Due Date</th>
+                            <th>Return Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in records %}
+                            <tr>
+                                <td class="text-muted">#{{ r.id }}</td>
+                                <td>
+                                    <div class="fw-semibold">{{ r.book.title }}</div>
+                                    <small class="text-muted"><i class="bi bi-pen"></i> {{ r.book.author }}</small>
+                                </td>
+                                <td>
+                                    <div>{{ r.student.full_name }}</div>
+                                    <small class="text-muted">{{ r.student.student_id_number }} &middot; {{ r.student.department }}</small>
+                                </td>
+                                <td>{{ r.issue_date.strftime('%b %d, %Y') }}</td>
+                                <td>{{ r.due_date.strftime('%b %d, %Y') }}</td>
+                                <td>
+                                    {% if r.return_date %}
+                                        <span class="text-success"><i class="bi bi-check-circle me-1"></i> {{ r.return_date.strftime('%b %d, %Y') }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if r.status == 'returned' %}
+                                        <span class="badge bg-success">Returned</span>
+                                    {% elif r.is_overdue %}
+                                        <span class="badge bg-danger">Overdue ({{ r.days_overdue }}d)</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Issued</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+                <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
+                    <small class="text-muted">Page {{ pagination.page }} of {{ pagination.pages }} ({{ pagination.total }} records)</small>
+                    <nav aria-label="History navigation">
+                        <ul class="pagination pagination-sm mb-0">
+                            {% if pagination.has_prev %}
+                                <li class="page-item"><a class="page-link" href="{{ url_for('admin.history', page=pagination.prev_num, q=query_str, status=status_filter) }}">Previous</a></li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                            {% endif %}
+
+                            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                {% if p %}
+                                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('admin.history', page=p, q=query_str, status=status_filter) }}">{{ p }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if pagination.has_next %}
+                                <li class="page-item"><a class="page-link" href="{{ url_for('admin.history', page=pagination.next_num, q=query_str, status=status_filter) }}">Next</a></li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">Next</span></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+
+        {% else %}
+            <div class="empty-state">
+                <i class="bi bi-clock-history empty-state-icon"></i>
+                <h5>No borrowing records found</h5>
+                <p class="text-muted">No historical records match your filter criteria.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

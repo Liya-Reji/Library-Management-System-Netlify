@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Student Registration - Library Management System{% endblock %}
+{% block content %}
+<div class="row justify-content-center my-4">
+    <div class="col-md-7 col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark text-white text-center py-4 rounded-top">
+                <i class="bi bi-mortarboard-fill display-5 text-warning"></i>
+                <h4 class="mt-2 mb-0 fw-bold">Student Registration</h4>
+                <small class="text-light opacity-75">Create your student library account</small>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('auth.register') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="username" class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="username" name="username" value="{{ form_data.username or '' }}" required placeholder="e.g. rahul_sharma">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="student_id_number" class="form-label fw-semibold">Student ID / Roll No <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control text-uppercase" id="student_id_number" name="student_id_number" value="{{ form_data.student_id_number or '' }}" required placeholder="e.g. BCA-2026-042">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="full_name" class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="full_name" name="full_name" value="{{ form_data.full_name or '' }}" required placeholder="e.g. Rahul Sharma">
+                        </div>
+
+                        <div class="col-md-7">
+                            <label for="email" class="form-label fw-semibold">College Email Address <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ form_data.email or '' }}" required placeholder="e.g. rahul@college.edu">
+                        </div>
+
+                        <div class="col-md-5">
+                            <label for="phone" class="form-label fw-semibold">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" value="{{ form_data.phone or '' }}" placeholder="e.g. +91 9876543210">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="department" class="form-label fw-semibold">Department / Course <span class="text-danger">*</span></label>
+                            <select class="form-select" id="department" name="department" required>
+                                <option value="" disabled {% if not form_data.department %}selected{% endif %}>Select department...</option>
+                                <option value="Computer Science & Engineering" {% if form_data.department == 'Computer Science & Engineering' %}selected{% endif %}>Computer Science & Engineering</option>
+                                <option value="Bachelor of Computer Applications (BCA)" {% if form_data.department == 'Bachelor of Computer Applications (BCA)' %}selected{% endif %}>Bachelor of Computer Applications (BCA)</option>
+                                <option value="Information Technology" {% if form_data.department == 'Information Technology' %}selected{% endif %}>Information Technology</option>
+                                <option value="Electronics & Communication" {% if form_data.department == 'Electronics & Communication' %}selected{% endif %}>Electronics & Communication</option>
+                                <option value="Mechanical Engineering" {% if form_data.department == 'Mechanical Engineering' %}selected{% endif %}>Mechanical Engineering</option>
+                                <option value="Civil Engineering" {% if form_data.department == 'Civil Engineering' %}selected{% endif %}>Civil Engineering</option>
+                                <option value="Business Administration (BBA/MBA)" {% if form_data.department == 'Business Administration (BBA/MBA)' %}selected{% endif %}>Business Administration (BBA/MBA)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="password" class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="password" name="password" minlength="6" required placeholder="Min 6 characters">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="confirm_password" class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" minlength="6" required placeholder="Re-enter password">
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-warning py-2 fw-semibold text-dark">
+                            <i class="bi bi-person-check-fill me-1"></i> Register Student Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer bg-light text-center py-3">
+                <small class="text-muted">Already have an account? <a href="{{ url_for('auth.login') }}" class="fw-semibold text-primary">Sign in here</a></small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

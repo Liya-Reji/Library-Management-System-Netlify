@@ -1,0 +1,34 @@
+# Render Blueprint Specification
+# Deploys Flask Web Service + Managed PostgreSQL Database
+services:
+  - type: web
+    name: library-management-system
+    env: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120 app:app
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.9
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: DEFAULT_LOAN_DAYS
+        value: "14"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: library-postgres-db
+          property: connectionString
+
+databases:
+  - name: library-postgres-db
+    databaseName: library_db
+    user: library_user
+    plan: free
+    region: oregon

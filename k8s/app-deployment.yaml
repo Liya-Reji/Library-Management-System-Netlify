@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: library-app-deployment
+  labels:
+    app: library-management
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: library-management
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: library-management
+        tier: frontend
+    spec:
+      containers:
+        - name: library-web
+          image: library-app:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+              name: http
+          env:
+            - name: FLASK_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: library-app-config
+                  key: FLASK_ENV
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: library-app-config
+                  key: PORT
+            - name: DEFAULT_LOAN_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: library-app-config
+                  key: DEFAULT_LOAN_DAYS
+            - name: SESSION_COOKIE_SECURE
+              valueFrom:
+                configMapKeyRef:
+                  name: library-app-config
+                  key: SESSION_COOKIE_SECURE
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: library-app-secret
+                  key: SECRET_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: library-app-secret
+                  key: DATABASE_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: library-app-service
+  labels:
+    app: library-management
+    tier: frontend
+spec:
+  type: NodePort
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30080
+      name: http
+  selector:
+    app: library-management
+    tier: frontend
