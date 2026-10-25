@@ -29,3 +29,5 @@ desktop.ini
 
 # Docker / Kubernetes local dumps
 *.log
+
+k8s/secret.yaml
