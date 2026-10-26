@@ -62,9 +62,22 @@ def serialize_record(r, today=None):
         "notes": r.notes or ""
     }
 
+# --- ROOT & HEALTH ENDPOINTS ---
+
+@api_bp.route("", methods=["GET"])
+@api_bp.route("/", methods=["GET"])
+@api_bp.route("/health", methods=["GET"])
+def api_root():
+    return jsonify({
+        "status": "ok",
+        "service": "Library Management System API",
+        "version": "1.0.0"
+    }), 200
+
 # --- AUTH ENDPOINTS ---
 
 @api_bp.route("/auth/me", methods=["GET"])
+@api_bp.route("/me", methods=["GET"])
 def current_user():
     if "user_id" not in session:
         return jsonify({"authenticated": False}), 200
@@ -91,9 +104,10 @@ def current_user():
 
 
 @api_bp.route("/auth/login", methods=["POST"])
+@api_bp.route("/login", methods=["POST"])
 def api_login():
-    data = request.get_json(silent=True) or request.form
-    identifier = (data.get("identifier") or "").strip()
+    data = request.get_json(silent=True) or request.form or {}
+    identifier = (data.get("identifier") or data.get("username") or data.get("email") or "").strip()
     password = data.get("password", "")
 
     if not identifier or not password:
@@ -132,6 +146,7 @@ def api_login():
 
 
 @api_bp.route("/auth/register", methods=["POST"])
+@api_bp.route("/register", methods=["POST"])
 def api_register():
     data = request.get_json(silent=True) or request.form
     username = (data.get("username") or "").strip()
@@ -188,6 +203,7 @@ def api_register():
 
 
 @api_bp.route("/auth/logout", methods=["POST", "GET"])
+@api_bp.route("/logout", methods=["POST", "GET"])
 def api_logout():
     session.clear()
     return jsonify({"success": True, "message": "Logged out successfully."}), 200

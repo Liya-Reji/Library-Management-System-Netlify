@@ -51,6 +51,54 @@ class TestApiEndpoints(BaseTestCase):
         data = resp.get_json()
         self.assertFalse(data["success"])
 
+    def test_api_login_endpoint_alias_and_fields(self):
+        # Test alias endpoint /api/login with 'username' key
+        resp = self.client.post("/api/login", json={
+            "username": "api_admin",
+            "password": "password123"
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["user"]["role"], "admin")
+
+        # Test login using admin email
+        resp_email = self.client.post("/api/auth/login", json={
+            "email": self.admin.email,
+            "password": "password123"
+        })
+        self.assertEqual(resp_email.status_code, 200)
+        self.assertTrue(resp_email.get_json()["success"])
+
+    def test_api_login_missing_fields(self):
+        # Missing password
+        resp = self.client.post("/api/auth/login", json={"identifier": "api_admin"})
+        self.assertEqual(resp.status_code, 400)
+        # Missing identifier
+        resp2 = self.client.post("/api/auth/login", json={"password": "password123"})
+        self.assertEqual(resp2.status_code, 400)
+
+    def test_api_login_student_returns_profile(self):
+        resp = self.client.post("/api/auth/login", json={
+            "identifier": "api_student",
+            "password": "password123"
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["user"]["role"], "student")
+        self.assertIsNotNone(data["student"])
+        self.assertEqual(data["student"]["student_id_number"], self.student.student_id_number)
+
+    def test_api_root_and_health(self):
+        resp = self.client.get("/api")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()["status"], "ok")
+
+        resp_health = self.client.get("/api/health")
+        self.assertEqual(resp_health.status_code, 200)
+        self.assertEqual(resp_health.get_json()["status"], "ok")
+
     def test_api_register_student(self):
         resp = self.client.post("/api/auth/register", json={
             "username": "new_api_student",

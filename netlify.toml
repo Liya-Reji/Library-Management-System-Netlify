@@ -19,8 +19,9 @@
 # Route all API endpoints directly to the Netlify Serverless Function
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  to = "/.netlify/functions/api"
   status = 200
+  force = true
 
 # Route all frontend views and paths to index.html
 [[redirects]]

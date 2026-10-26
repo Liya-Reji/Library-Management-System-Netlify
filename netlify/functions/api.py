@@ -25,12 +25,15 @@ def get_flask_app():
     """Lazy initialize Flask application."""
     global _flask_app
     if _flask_app is None:
-        env_mode = "production" if os.getenv("DATABASE_URL") else "development"
+        is_cloud = os.getenv("NETLIFY") == "true" or os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
+        env_mode = os.getenv("FLASK_ENV")
+        if not env_mode:
+            env_mode = "production" if (is_cloud or os.getenv("DATABASE_URL")) else "development"
         _flask_app = create_app(env_mode)
     return _flask_app
 
 def ensure_database_ready(app):
-    """Ensure database tables exist and default admin account is populated on first invocation."""
+    """Ensure database tables exist without modifying existing data or resetting passwords."""
     global _db_initialized
     if _db_initialized:
         return
@@ -39,7 +42,7 @@ def ensure_database_ready(app):
         with app.app_context():
             db.create_all()
 
-            # Ensure Administrator exists
+            # Preserve existing users - only seed default admin if no admin exists
             admin = User.query.filter_by(role="admin").first()
             if not admin:
                 admin_user = os.getenv("ADMIN_USERNAME", "admin")
@@ -55,8 +58,10 @@ def ensure_database_ready(app):
                 db.session.add(new_admin)
                 db.session.commit()
                 print(f"[+] Initialized default administrator: {admin_user}")
+            else:
+                print(f"[*] Preserving existing administrator account: {admin.username}")
 
-            # Ensure default Student demo account exists
+            # Preserve existing students - only seed default student if no student exists
             student_user = User.query.filter_by(role="student").first()
             if not student_user:
                 new_student = User(
@@ -70,16 +75,19 @@ def ensure_database_ready(app):
 
                 student_profile = Student(
                     user_id=new_student.id,
-                    roll_number="CS2026-001",
+                    student_id_number="CS2026-001",
                     full_name="Alex Johnson",
                     department="Computer Science",
+                    email="student1@college.edu",
                     phone="9876543210"
                 )
                 db.session.add(student_profile)
                 db.session.commit()
                 print("[+] Initialized default student: student1")
+            else:
+                print(f"[*] Preserving existing student accounts.")
 
-            # Ensure sample books exist if catalog is completely empty
+            # Preserve existing books - only seed sample books if catalog is completely empty
             if Book.query.count() == 0:
                 sample_books = [
                     Book(title="Introduction to Algorithms (4th Edition)", author="Thomas H. Cormen", category="Computer Science", isbn="978-0262046305", total_copies=5, available_copies=5),
@@ -92,24 +100,67 @@ def ensure_database_ready(app):
                 db.session.add_all(sample_books)
                 db.session.commit()
                 print("[+] Seeded initial demonstration books.")
+            else:
+                print(f"[*] Preserving existing book catalog ({Book.query.count()} books found).")
 
             _db_initialized = True
     except Exception as e:
         print(f"[!] Database auto-init error: {e}")
 
+def resolve_request_path(event):
+    """
+    Resolve the clean API route path from the incoming Netlify Lambda event.
+    Handles Netlify rewrites (/api/* -> /.netlify/functions/api),
+    direct function invocations (/.netlify/functions/api/...),
+    and custom domains with rawUrl.
+    """
+    path = ""
+    # 1. Try extracting path from rawUrl (most reliable when Netlify proxies/rewrites)
+    raw_url = event.get("rawUrl")
+    if raw_url:
+        try:
+            parsed = urllib.parse.urlparse(raw_url)
+            candidate = parsed.path or ""
+            # Ignore naked function invocations if rawUrl matches /.netlify/functions/api
+            if candidate and candidate not in ("/.netlify/functions/api", "/.netlify/functions/api/"):
+                path = candidate
+        except Exception:
+            pass
+
+    # 2. Fall back to event['path']
+    if not path:
+        path = event.get("path") or "/"
+
+    # 3. Strip function prefix if present (e.g., /.netlify/functions/api/auth/login -> /api/auth/login)
+    function_prefix = "/.netlify/functions/api"
+    if path.startswith(function_prefix):
+        remainder = path[len(function_prefix):]
+        if not remainder or remainder == "/":
+            path = "/api"
+        elif remainder.startswith("/api/"):
+            path = remainder
+        else:
+            path = f"/api{remainder}"
+
+    # 4. Ensure path starts with /api
+    if not path.startswith("/api"):
+        path = f"/api{path}" if path.startswith("/") else f"/api/{path}"
+
+    return path
+
 def wsgi_handler(app, event, context):
     """Bridge AWS Lambda / Netlify event to WSGI application."""
     method = event.get("httpMethod", "GET")
-    path = event.get("path", "/")
-
-    # Netlify function redirects from /.netlify/functions/api/... to /api/...
-    if path.startswith("/.netlify/functions/api"):
-        path = path.replace("/.netlify/functions/api", "/api", 1)
-    elif not path.startswith("/api"):
-        path = f"/api{path}"
+    path = resolve_request_path(event)
 
     query_params = event.get("queryStringParameters") or {}
     query_string = urllib.parse.urlencode(query_params)
+    if not query_string and event.get("rawUrl"):
+        try:
+            parsed = urllib.parse.urlparse(event["rawUrl"])
+            query_string = parsed.query or ""
+        except Exception:
+            pass
 
     headers = event.get("headers") or {}
     body = event.get("body") or ""
@@ -148,6 +199,15 @@ def wsgi_handler(app, event, context):
         if key_upper not in ("CONTENT_TYPE", "CONTENT_LENGTH"):
             environ[f"HTTP_{key_upper}"] = value
 
+    if "HTTP_COOKIE" not in environ:
+        multi_val_headers = event.get("multiValueHeaders") or {}
+        cookie_list = multi_val_headers.get("cookie") or multi_val_headers.get("Cookie") or event.get("cookies")
+        if cookie_list:
+            if isinstance(cookie_list, list):
+                environ["HTTP_COOKIE"] = "; ".join(cookie_list)
+            else:
+                environ["HTTP_COOKIE"] = str(cookie_list)
+
     response_status = []
     response_headers = []
 
@@ -166,6 +226,7 @@ def wsgi_handler(app, event, context):
     for key, val in response_headers:
         if key.lower() == "set-cookie":
             multi_headers.setdefault("Set-Cookie", []).append(val)
+            out_headers["Set-Cookie"] = val
         else:
             out_headers[key] = val
 

@@ -7,7 +7,7 @@ import os
 def main():
     redirects_content = """# Netlify Serverless & SPA Routing
 # Route all API calls directly to the Netlify Serverless Function
-/api/*  /.netlify/functions/api/:splat  200
+/api/*  /.netlify/functions/api  200!
 
 # Single Page Application routing: serve index.html for all frontend views
 /*  /index.html  200
