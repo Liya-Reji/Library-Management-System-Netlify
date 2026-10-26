@@ -1,6 +1,0 @@
-# Netlify Proxy Configuration
-# Static assets served directly from Netlify Edge CDN
-/static/*  /:splat  200
-
-# Proxy all dynamic routes, forms, sessions, and APIs to Render Flask Backend
-/*  https://library-management-system.onrender.com/:splat  200!

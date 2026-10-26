@@ -7,6 +7,7 @@ from routes.public_routes import public_bp
 from routes.auth_routes import auth_bp
 from routes.admin_routes import admin_bp
 from routes.student_routes import student_bp
+from routes.api_routes import api_bp
 
 def create_app(config_name=None):
     if not config_name:
@@ -25,6 +26,31 @@ def create_app(config_name=None):
     # Initialize extensions
     db.init_app(app)
 
+    # CORS support for Netlify and cross-origin frontend
+    @app.after_request
+    def add_cors_headers(response):
+        from flask import request
+        origin = request.headers.get("Origin")
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+        return response
+
+    @app.before_request
+    def handle_options_preflight():
+        from flask import request
+        if request.method == "OPTIONS":
+            response = app.make_default_options_response()
+            origin = request.headers.get("Origin")
+            if origin:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+            return response
+
     # CSRF hook
     @app.before_request
     def handle_csrf():
@@ -42,6 +68,7 @@ def create_app(config_name=None):
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(student_bp)
+    app.register_blueprint(api_bp)
 
     # Error handlers
     @app.errorhandler(400)

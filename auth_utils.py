@@ -13,7 +13,7 @@ def validate_csrf():
     
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
         # Allow checking health checks or safe APIs if any
-        if request.endpoint == "health":
+        if request.endpoint == "health" or request.path.startswith("/api/"):
             return True
         token = request.form.get("csrf_token") or request.headers.get("X-CSRFToken")
         expected = session.get("csrf_token")
