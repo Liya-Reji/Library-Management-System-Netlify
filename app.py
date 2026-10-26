@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, jsonify
-from config import config_by_name
+from config import config_by_name, get_database_url
 from models import db
 from auth_utils import generate_csrf_token, validate_csrf
 from routes.public_routes import public_bp
@@ -17,10 +17,13 @@ def create_app(config_name=None):
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
 
+    # Enforce database requirements in production
+    if config_name == "production":
+        db_uri = get_database_url(is_production=True)
+        app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
+
     # Initialize extensions
     db.init_app(app)
-    with app.app_context():
-        db.create_all()
 
     # CSRF hook
     @app.before_request
@@ -57,10 +60,10 @@ def create_app(config_name=None):
     def server_error(e):
         return render_template("errors/500.html"), 500
 
-    # CLI command for manual DB creation
+    # CLI command for safe manual DB schema creation
     @app.cli.command("init-db")
     def init_db_command():
-        """Create database tables safely."""
+        """Create database tables safely without dropping existing data."""
         db.create_all()
         print("Database tables initialized successfully.")
 
@@ -70,6 +73,9 @@ def create_app(config_name=None):
 app = create_app(os.getenv("FLASK_ENV", "production" if os.getenv("RENDER") else "development"))
 
 if __name__ == "__main__":
+    # In local development, ensure tables exist automatically
+    with app.app_context():
+        db.create_all()
     port = int(os.getenv("PORT", 5000))
     debug = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1", "yes")
     app.run(host="0.0.0.0", port=port, debug=debug)

@@ -6,16 +6,38 @@ load_dotenv()
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-def get_database_url():
-    """Normalize database URL for SQLAlchemy (Render uses postgres:// which must be postgresql://)."""
-    raw_url = os.getenv("DATABASE_URL")
+def normalize_database_url(raw_url):
+    """
+    Normalize database URL for SQLAlchemy.
+    Render uses postgres:// which SQLAlchemy 1.4+ requires to be postgresql://.
+    """
     if not raw_url:
-        # Default to local SQLite database in instance directory
-        os.makedirs(os.path.join(BASE_DIR, "instance"), exist_ok=True)
-        return f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'library.db')}"
-    if raw_url.startswith("postgres://"):
-        raw_url = raw_url.replace("postgres://", "postgresql://", 1)
-    return raw_url
+        return None
+    url = raw_url.strip()
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    return url
+
+def get_database_url(is_production=False):
+    """
+    Fetch and validate the database URL.
+    In production, fails fast if DATABASE_URL is missing to prevent silent fallback to SQLite.
+    In development/testing, falls back to local SQLite.
+    """
+    raw_url = os.getenv("DATABASE_URL")
+    normalized = normalize_database_url(raw_url)
+    if normalized:
+        return normalized
+
+    if is_production:
+        raise RuntimeError(
+            "CRITICAL CONFIGURATION ERROR: DATABASE_URL environment variable is required in production. "
+            "Set DATABASE_URL to your PostgreSQL connection string in the Render Dashboard to connect to your database."
+        )
+
+    # Local development fallback to SQLite
+    os.makedirs(os.path.join(BASE_DIR, "instance"), exist_ok=True)
+    return f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'library.db')}"
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production-123456789")
@@ -27,7 +49,7 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = get_database_url()
+    SQLALCHEMY_DATABASE_URI = get_database_url(is_production=False)
     SESSION_COOKIE_SECURE = False
 
 class TestingConfig(Config):
@@ -40,7 +62,9 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = get_database_url()
+    # If DATABASE_URL is available at import time, normalize it;
+    # otherwise create_app will validate and enforce it dynamically.
+    SQLALCHEMY_DATABASE_URI = normalize_database_url(os.getenv("DATABASE_URL"))
     # In production with HTTPS, enable secure cookies
     SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "true").lower() in ("true", "1", "yes")
 

@@ -24,32 +24,28 @@ flowchart TD
         StudentUser["Student Portal"]
     end
 
-    subgraph AppServer["Flask Web Application (Gunicorn)"]
+    subgraph EdgeCDN["Netlify Edge Proxy (Optional)"]
+        NetlifyEdge["Netlify CDN (Static Assets & Edge Proxy)"]
+    end
+
+    subgraph AppServer["Flask Web Application (Gunicorn on Render)"]
         Routes["Blueprints (Auth, Admin, Student, Public)"]
         Security["Session Auth & CSRF Middleware"]
         ORM["SQLAlchemy ORM & Models"]
     end
 
     subgraph DataLayer["Relational Database"]
-        PostgresDB[("PostgreSQL 16 (Docker / K8s / Render)")]
-        SQLiteLocal[("SQLite Fallback (Local Dev)")]
+        PostgresDB[("PostgreSQL 16 (Render Managed Database)")]
+        SQLiteLocal[("SQLite Fallback (Local Dev/Testing)")]
     end
 
-    subgraph DeployEnv["Deployment Targets"]
-        LocalCompose["Docker Compose (App + Postgres Container)"]
-        K8sCluster["Kubernetes / Minikube (Pods, PVC, Services)"]
-        RenderCloud["Render PaaS (Web Service + Managed DB)"]
-    end
-
-    Client -->|HTTPS / HTTP| Routes
+    Client -->|HTTPS| NetlifyEdge
+    NetlifyEdge -->|Proxy Requests / API| Routes
+    Client -.->|Direct HTTPS| Routes
     Routes --> Security
     Security --> ORM
     ORM --> PostgresDB
     ORM -.-> SQLiteLocal
-
-    AppServer --> LocalCompose
-    AppServer --> K8sCluster
-    AppServer --> RenderCloud
 ```
 
 ---
@@ -335,16 +331,51 @@ Render deployment runs your Flask app on a managed cloud container and connects 
      - `SESSION_COOKIE_SECURE`: `true`
      - `SECRET_KEY`: *(Generate a secure random string)*
      - `DATABASE_URL`: *(Paste the Internal Database URL from Step 1)*
-3. **Initialize Database Schema on Render:**
-   - Once the web service is deployed, open the **Shell** tab in the Render Dashboard and run:
+3. **Initialize Database Schema & Administrator on Render:**
+   - Open the **Shell** tab of your `library-management-system` service in the Render Dashboard and run:
      ```bash
-     python scripts/init_db.py
-     python scripts/seed_data.py
+     # Verify existing administrators (read-only):
+     python scripts/create_admin.py --check
+
+     # If no admin exists, create one interactively:
+     python scripts/create_admin.py
+
+     # Optionally seed demo catalog (idempotent, does not duplicate records):
+     python scripts/seed_data.py --confirm-production
      ```
 
 ---
 
-## 11. Environment Variables Reference
+## 11. Netlify Edge Deployment (Connected to GitHub)
+
+Netlify acts as a fast global edge proxy in front of your Flask backend on Render, serving static assets from Netlify's CDN and securely proxying dynamic web pages and transactions to Render.
+
+### Step 1: Push latest changes to GitHub
+Ensure `netlify.toml` and your code are pushed to your repository:
+```powershell
+git add .
+git commit -m "feat: configure Netlify edge proxy and safe admin verification"
+git push origin main
+```
+
+### Step 2: Connect repository in Netlify
+1. Log in to [Netlify Dashboard](https://app.netlify.com/).
+2. Click **Add new site** > **Import an existing project**.
+3. Select **GitHub** and authorize access to `Library-Management-System`.
+4. Netlify automatically detects `netlify.toml`:
+   - **Build command:** `python scripts/prepare_netlify.py`
+   - **Publish directory:** `static`
+5. In **Environment variables**, optionally add:
+   - `BACKEND_URL`: `https://library-management-system.onrender.com` (or your custom Render service URL)
+6. Click **Deploy Library-Management-System**.
+
+### Step 3: Verify the Live Website
+- Open your Netlify URL (e.g. `https://your-site-name.netlify.app`).
+- Netlify will serve static assets from the global edge and proxy all dynamic interactions (login, student dashboard, catalog search, book issue/return) seamlessly to your Render backend without cross-origin cookie issues!
+
+---
+
+## 12. Environment Variables Reference
 
 | Variable | Description | Default / Example |
 | :--- | :--- | :--- |

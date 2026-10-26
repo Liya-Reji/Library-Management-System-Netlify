@@ -1,11 +1,20 @@
 """
-Optional demo data seed script.
-Populates sample books, students, and borrow records for local testing and college demonstrations.
-Run manually with: python scripts/seed_data.py
+Safe Demonstration Data Seeding Script.
+Usage:
+  - Local development:
+      python scripts/seed_data.py
+  - In production (requires explicit confirmation flag):
+      python scripts/seed_data.py --confirm-production
+
+Guarantees:
+  - Idempotent: can be executed multiple times without duplicating books, students, or loans.
+  - Never overwrites existing administrator accounts or passwords.
+  - Checks unique constraints (ISBN, book title, student ID, student email, username).
 """
 import sys
 import os
 from datetime import date, timedelta
+from urllib.parse import urlparse
 
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -13,19 +22,46 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from app import create_app
 from models import db, User, Student, Book, BorrowRecord
 
+def mask_connection_url(url):
+    if not url:
+        return "None"
+    try:
+        parsed = urlparse(url)
+        if parsed.password:
+            netloc = parsed.netloc.replace(f":{parsed.password}@", ":****@")
+            return parsed._replace(netloc=netloc).geturl()
+    except Exception:
+        pass
+    return "Configured Database URL"
+
 def seed_database():
+    is_production = os.getenv("FLASK_ENV") == "production"
+    confirmed = "--confirm-production" in sys.argv
+
+    if is_production and not confirmed:
+        print("\n[!] SAFETY GUARD: Application is running in PRODUCTION environment.")
+        print("[!] Demo data will NOT be automatically inserted without explicit confirmation.")
+        print("[!] If you wish to seed demonstration records into production, run:")
+        print("    python scripts/seed_data.py --confirm-production\n")
+        return
+
     app = create_app()
     with app.app_context():
         # Ensure tables exist
         db.create_all()
 
-        admin_username = os.getenv("ADMIN_USERNAME", "admin")
-        admin_email = os.getenv("ADMIN_EMAIL", "admin@library.college.edu")
-        admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
+        db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+        print(f"[*] Target Database: {mask_connection_url(db_uri)}")
 
-        # 1. Seed Administrator if not present
-        admin_user = User.query.filter_by(username=admin_username).first()
-        if not admin_user:
+        # 1. Administrator Account Check / Preservation
+        existing_any_admin = User.query.filter_by(role="admin").first()
+        if existing_any_admin:
+            print(f"[*] Administrator account '{existing_any_admin.username}' already exists. Preserving credentials.")
+        else:
+            admin_username = os.getenv("ADMIN_USERNAME", "admin")
+            admin_email = os.getenv("ADMIN_EMAIL", "admin@library.college.edu")
+            admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
+
             admin_user = User(
                 username=admin_username,
                 email=admin_email,
@@ -33,11 +69,10 @@ def seed_database():
             )
             admin_user.set_password(admin_password)
             db.session.add(admin_user)
-            print(f"[+] Created Administrator account: {admin_username} / {admin_password}")
-        else:
-            print(f"[*] Administrator '{admin_username}' already exists.")
+            db.session.commit()
+            print(f"[+] Created initial demonstration administrator: '{admin_username}'")
 
-        # 2. Seed Books
+        # 2. Seed Books (Idempotent by title and ISBN)
         sample_books = [
             {
                 "title": "Introduction to Algorithms (4th Edition)",
@@ -113,19 +148,23 @@ def seed_database():
             }
         ]
 
-        book_objects = {}
+        books_added = 0
         for b_data in sample_books:
-            existing_book = Book.query.filter_by(title=b_data["title"]).first()
-            if not existing_book:
+            existing = Book.query.filter(
+                (Book.title == b_data["title"]) | (Book.isbn == b_data["isbn"])
+            ).first()
+            if not existing:
                 new_book = Book(**b_data)
                 db.session.add(new_book)
-                db.session.flush()
-                book_objects[b_data["title"]] = new_book
-                print(f"[+] Added book: {new_book.title}")
-            else:
-                book_objects[b_data["title"]] = existing_book
+                books_added += 1
 
-        # 3. Seed Students
+        db.session.commit()
+        if books_added > 0:
+            print(f"[+] Added {books_added} new demonstration book(s) to catalog.")
+        else:
+            print("[*] Demonstration books already present. No duplicates added.")
+
+        # 3. Seed Students (Idempotent by student ID, email, username)
         sample_students = [
             {
                 "username": "student1",
@@ -153,10 +192,16 @@ def seed_database():
             }
         ]
 
-        student_objects = {}
+        students_added = 0
         for s_data in sample_students:
-            existing_student = Student.query.filter_by(student_id_number=s_data["student_id_number"]).first()
-            if not existing_student:
+            user_exists = User.query.filter(
+                (User.username == s_data["username"]) | (User.email == s_data["email"])
+            ).first()
+            student_exists = Student.query.filter(
+                (Student.student_id_number == s_data["student_id_number"]) | (Student.email == s_data["email"])
+            ).first()
+
+            if not user_exists and not student_exists:
                 user = User(
                     username=s_data["username"],
                     email=s_data["email"],
@@ -175,14 +220,13 @@ def seed_database():
                     user_id=user.id
                 )
                 db.session.add(student)
-                db.session.flush()
-                student_objects[s_data["username"]] = student
-                print(f"[+] Created student: {student.full_name} ({s_data['username']}/student123)")
-            else:
-                student_objects[s_data["username"]] = existing_student
+                students_added += 1
 
-        # Commit initial users & books
         db.session.commit()
+        if students_added > 0:
+            print(f"[+] Added {students_added} demonstration student profile(s).")
+        else:
+            print("[*] Demonstration students already present. No duplicates added.")
 
         # 4. Seed Demonstrative Borrow Records if table is empty
         if BorrowRecord.query.count() == 0:
@@ -207,7 +251,7 @@ def seed_database():
                 db.session.add(r1)
 
             if b2 and s2 and b2.available_copies > 0:
-                # Overdue Loan (to showcase overdue badge in dashboard!)
+                # Overdue Loan (to showcase overdue badge in dashboard)
                 r2 = BorrowRecord(
                     book_id=b2.id,
                     student_id=s2.id,
@@ -235,10 +279,7 @@ def seed_database():
             db.session.commit()
             print("[+] Seeded demonstration borrow transactions (1 active, 1 overdue, 1 returned).")
 
-        print("\nAll demo data seeded successfully!")
-        print("Login credentials for demo:")
-        print(" - Librarian: admin / admin123")
-        print(" - Student:   student1 / student123")
+        print("\n[+] Verification complete: database is ready.")
 
 if __name__ == "__main__":
     seed_database()
